@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lightmm"
+version = "0.1.0"
+description = "Unified mmengine+lightning-style framework for agents (loops & graphs) and deep learning"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "LightMM Contributors" }]
+dependencies = [
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+torch = ["torch>=2.1"]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/ajayrafa25/agentic-framework"
+
+[tool.setuptools.packages.find]
+include = ["lightmm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
