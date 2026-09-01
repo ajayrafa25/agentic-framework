@@ -1,0 +1,15 @@
+{
+  "name": "agentic-framework",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Collaborative AI environment for ML model development",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --parallel -r start",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
