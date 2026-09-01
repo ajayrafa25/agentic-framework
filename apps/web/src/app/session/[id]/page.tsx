@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
 import { DEMO_USERS } from "@agentic/shared";
@@ -8,10 +9,14 @@ import { fetchGitStatus, fetchSession, fetchSessions, openPullRequest } from "@/
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ChatPanel } from "@/components/ChatPanel";
-import { TerminalPanel } from "@/components/TerminalPanel";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { PlanEditor } from "@/components/PlanEditor";
+
+const TerminalPanel = dynamic(
+  () => import("@/components/TerminalPanel").then((m) => m.TerminalPanel),
+  { ssr: false }
+);
 
 const CURRENT_USER = DEMO_USERS[0];
 
