@@ -25,7 +25,15 @@ export function TerminalPanel({ sessionId, userName }: { sessionId: string; user
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(containerRef.current);
-    fit.fit();
+    const safeFit = () => {
+      try {
+        const el = containerRef.current;
+        if (el && el.clientWidth > 8 && el.clientHeight > 8) fit.fit();
+      } catch {
+        // xterm throws if the container has no layout yet
+      }
+    };
+    requestAnimationFrame(safeFit);
 
     socket.emit("terminal:start", { sessionId });
 
@@ -42,7 +50,7 @@ export function TerminalPanel({ sessionId, userName }: { sessionId: string; user
       socket.emit("terminal:input", { sessionId, data });
     });
 
-    const onResize = () => fit.fit();
+    const onResize = () => safeFit();
     window.addEventListener("resize", onResize);
 
     return () => {

@@ -138,7 +138,18 @@ export class SessionStore {
     const branch = `experiment/${id.slice(0, 8)}`;
     const workspacePath = path.join(WORKSPACES_DIR, id);
     await fs.ensureDir(WORKSPACES_DIR);
-    await fs.copy(TEMPLATE_DIR, workspacePath);
+    await fs.copy(TEMPLATE_DIR, workspacePath, {
+      filter: (src) => {
+        const rel = path.relative(TEMPLATE_DIR, src);
+        if (!rel || rel === ".") return true;
+        if (rel === "experiments" || rel.startsWith(`experiments${path.sep}`)) return false;
+        if (rel.startsWith(`data${path.sep}cifar`)) return false;
+        if (rel === ".git" || rel.startsWith(`.git${path.sep}`)) return false;
+        return true;
+      },
+    });
+    await fs.ensureDir(path.join(workspacePath, "experiments/logs"));
+    await fs.ensureDir(path.join(workspacePath, "experiments/checkpoints"));
 
     const configPath = path.join(workspacePath, "config/experiment.yaml");
     let configText = await fs.readFile(configPath, "utf-8");
