@@ -1,0 +1,36 @@
+# Experiment configuration
+experiment:
+  name: "{{name}}"
+  seed: 42
+  notes: "Baseline run — discuss hyperparameters in session chat before training"
+
+model:
+  architecture: resnet50
+  pretrained: true
+  num_classes: 10
+
+data:
+  dataset: cifar10
+  train_split: 0.9
+  batch_size: 32
+  num_workers: 4
+  augmentation:
+    random_flip: true
+    normalize: true
+
+training:
+  epochs: 50
+  optimizer: adamw
+  learning_rate: 0.001
+  weight_decay: 0.01
+  scheduler: cosine
+  early_stopping_patience: 5
+
+evaluation:
+  primary_metric: accuracy
+  eval_every_epochs: 1
+
+output:
+  checkpoint_dir: experiments/checkpoints
+  log_dir: experiments/logs
+  save_best_only: true

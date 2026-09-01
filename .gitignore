@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+.turbo
+workspaces/*
+!workspaces/.gitkeep
+.env
+.env.local
+*.log
+.DS_Store
