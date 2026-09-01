@@ -5,16 +5,15 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0c0f14;
-  --surface: #141820;
-  --surface-2: #1a2030;
-  --border: #2a3344;
-  --text: #e8ecf4;
-  --muted: #8b95a8;
-  --accent: #6ee7b7;
-  --accent-2: #818cf8;
-  --danger: #f87171;
-  --warning: #fbbf24;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #656d76;
+  --accent: #1f883d;
+  --link: #0969da;
+  --danger: #cf222e;
 }
 
 * {
@@ -28,19 +27,36 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 button {
   cursor: pointer;
+  font-family: inherit;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: #d0d7de;
+  border-radius: 8px;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }

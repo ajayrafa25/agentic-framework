@@ -1,8 +1,19 @@
 import fs from "fs-extra";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
-import type { ActivityItem, ChatMessage, ExperimentSession, PlanDocument, TrainingMetrics } from "@agentic/shared";
+import {
+  DEMO_USERS,
+  type ActivityItem,
+  type ChatMessage,
+  type ExperimentSession,
+  type PlanDocument,
+  type TrainingMetrics,
+} from "@agentic/shared";
 import { TEMPLATE_DIR, WORKSPACES_DIR } from "./config.js";
+
+function displayName(userId: string): string {
+  return DEMO_USERS.find((u) => u.id === userId)?.name ?? userId;
+}
 
 const sessions = new Map<string, ExperimentSession>();
 const chatHistory = new Map<string, ChatMessage[]>();
@@ -115,7 +126,7 @@ export class SessionStore {
       sessionId: id,
       sessionName: input.name,
       userId: input.createdBy,
-      userName: input.createdBy,
+      userName: displayName(input.createdBy),
       action: "Created experiment session",
     });
 

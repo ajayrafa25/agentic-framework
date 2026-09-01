@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
 import { DEMO_USERS } from "@agentic/shared";
 import { fetchSession, fetchSessions } from "@/lib/api";
+import { AppHeader } from "@/components/AppHeader";
+import { StatusBadge } from "@/components/StatusBadge";
 import { ChatPanel } from "@/components/ChatPanel";
 import { TerminalPanel } from "@/components/TerminalPanel";
 import { MetricsPanel } from "@/components/MetricsPanel";
@@ -14,14 +16,10 @@ import { PlanEditor } from "@/components/PlanEditor";
 const CURRENT_USER = DEMO_USERS[0];
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const { id: sessionId } = use(params);
   const [session, setSession] = useState<ExperimentSession | null>(null);
   const [sessions, setSessions] = useState<ExperimentSession[]>([]);
-  const [tab, setTab] = useState<"workspace" | "plan" | "config">("workspace");
-
-  useEffect(() => {
-    params.then((p) => setSessionId(p.id));
-  }, [params]);
+  const [tab, setTab] = useState<"run" | "plan" | "config">("run");
 
   useEffect(() => {
     if (!sessionId) return;
@@ -32,92 +30,97 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   }, [sessionId]);
 
   if (!sessionId || !session) {
-    return <div className="min-h-screen bg-bg p-8 text-muted">Loading experiment session...</div>;
+    return (
+      <div className="min-h-screen bg-bg">
+        <AppHeader />
+        <p className="p-6 text-muted">Loading…</p>
+      </div>
+    );
   }
 
-  return (
-    <div className="h-screen flex bg-bg overflow-hidden">
-      <aside className="w-56 border-r border-border flex flex-col shrink-0">
-        <div className="p-4 border-b border-border">
-          <Link href="/" className="text-xs text-muted hover:text-accent">← Dashboard</Link>
-          <h1 className="font-semibold mt-2">Forge</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {sessions.map((s) => (
-            <Link
-              key={s.id}
-              href={`/session/${s.id}`}
-              className={`block rounded-lg px-3 py-2 text-sm ${
-                s.id === sessionId ? "bg-accent/15 text-accent" : "hover:bg-surface-2 text-muted"
-              }`}
-            >
-              {s.name}
-            </Link>
-          ))}
-        </div>
-        <div className="p-3 border-t border-border text-xs text-muted">
-          {session.branch}
-        </div>
-      </aside>
+  const tabs = [
+    { id: "run" as const, label: "Run" },
+    { id: "plan" as const, label: "Plan" },
+    { id: "config" as const, label: "Config" },
+  ];
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-border px-5 py-3 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="font-semibold">{session.name}</h2>
-            <p className="text-sm text-muted">
-              {session.modelArchitecture} · {session.dataset} · {session.status}
-            </p>
-          </div>
-          <div className="flex gap-2 text-sm">
-            {(["workspace", "plan", "config"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3 py-1 rounded-lg ${
-                  tab === t ? "bg-accent/20 text-accent" : "text-muted hover:bg-surface-2"
+  return (
+    <div className="h-screen flex flex-col bg-bg overflow-hidden">
+      <AppHeader />
+      <div className="flex-1 flex min-h-0">
+        <aside className="w-[220px] border-r border-border bg-surface flex flex-col shrink-0">
+          <div className="px-3 py-2 text-xs font-semibold text-muted">Experiments</div>
+          <div className="flex-1 overflow-y-auto">
+            {sessions.map((s) => (
+              <Link
+                key={s.id}
+                href={`/session/${s.id}`}
+                className={`block px-3 py-1.5 text-sm border-l-2 ${
+                  s.id === sessionId
+                    ? "border-accent bg-surface-2 font-medium"
+                    : "border-transparent text-muted hover:bg-surface-2 hover:text-text"
                 }`}
               >
-                {t === "workspace" ? "Workspace" : t === "plan" ? "Plan" : "Config"}
-              </button>
+                <div className="truncate">{s.name}</div>
+              </Link>
             ))}
           </div>
-        </header>
+        </aside>
 
-        {tab === "workspace" && (
-          <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 p-3 min-h-0">
-            <ChatPanel sessionId={sessionId} userName={CURRENT_USER.name} userId={CURRENT_USER.id} />
-            <MetricsPanel sessionId={sessionId} userName={CURRENT_USER.name} />
-            <TerminalPanel sessionId={sessionId} userName={CURRENT_USER.name} />
-            <div className="border border-border rounded-xl bg-surface p-4 overflow-y-auto">
-              <h3 className="text-sm font-medium mb-3">Session summary</h3>
-              <p className="text-sm text-muted leading-relaxed mb-4">{session.description || "No description."}</p>
-              <div className="text-xs text-muted space-y-1">
-                <p>Discuss hyperparameters and architecture choices in chat before long runs.</p>
-                <p>Team members share this terminal, config, and metrics view.</p>
-                <p>Use <span className="text-accent">@forge</span> to apply agreed changes to config.</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {DEMO_USERS.map((u) => (
-                  <span key={u.id} className="text-xs rounded-full px-2 py-1 bg-surface-2" style={{ color: u.color }}>
-                    {u.name}
-                  </span>
-                ))}
-              </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="bg-surface border-b border-border px-4 pt-3 shrink-0">
+            <div className="flex items-center gap-2 mb-2">
+              <h2 className="font-semibold">{session.name}</h2>
+              <StatusBadge status={session.status} />
+              <span className="text-xs text-muted font-mono ml-auto">{session.branch}</span>
+            </div>
+            <p className="text-sm text-muted mb-2">
+              {session.modelArchitecture} · {session.dataset}
+              {session.description ? ` — ${session.description}` : ""}
+            </p>
+            <div className="flex gap-4 text-sm">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`pb-2 border-b-2 -mb-px ${
+                    tab === t.id
+                      ? "border-[#fd8c73] font-medium"
+                      : "border-transparent text-muted hover:text-text"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {tab === "plan" && (
-          <div className="flex-1 p-3 min-h-0">
-            <PlanEditor sessionId={sessionId} userId={CURRENT_USER.id} />
-          </div>
-        )}
+          {tab === "run" && (
+            <div className="flex-1 grid grid-cols-[minmax(280px,1fr)_minmax(360px,1.2fr)] min-h-0">
+              <ChatPanel sessionId={sessionId} userName={CURRENT_USER.name} userId={CURRENT_USER.id} />
+              <div className="flex flex-col min-h-0 border-l border-border">
+                <div className="h-[42%] min-h-0">
+                  <MetricsPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                </div>
+                <div className="flex-1 min-h-0 border-t border-border">
+                  <TerminalPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                </div>
+              </div>
+            </div>
+          )}
 
-        {tab === "config" && (
-          <div className="flex-1 p-3 min-h-0">
-            <ConfigEditor sessionId={sessionId} />
-          </div>
-        )}
+          {tab === "plan" && (
+            <div className="flex-1 min-h-0">
+              <PlanEditor sessionId={sessionId} userId={CURRENT_USER.id} />
+            </div>
+          )}
+
+          {tab === "config" && (
+            <div className="flex-1 min-h-0">
+              <ConfigEditor sessionId={sessionId} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
