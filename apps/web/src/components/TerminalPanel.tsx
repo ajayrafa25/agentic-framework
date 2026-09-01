@@ -30,7 +30,7 @@ export function TerminalPanel({ sessionId, userName }: { sessionId: string; user
     socket.emit("terminal:start", { sessionId });
 
     socket.on("terminal:ready", () => {
-      term.writeln("python scripts/validate_config.py");
+      term.writeln("python scripts/train.py --fast");
       term.writeln("python scripts/train.py");
     });
 

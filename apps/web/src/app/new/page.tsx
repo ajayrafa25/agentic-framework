@@ -10,7 +10,7 @@ export default function NewSessionPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [architecture, setArchitecture] = useState("resnet50");
+  const [architecture, setArchitecture] = useState("resnet18");
   const [dataset, setDataset] = useState("cifar10");
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +47,7 @@ export default function NewSessionPage() {
               className={`${field} font-mono`}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="resnet50-cifar10-lr-sweep"
+              placeholder="resnet18-cifar10-lr-sweep"
               required
             />
           </label>

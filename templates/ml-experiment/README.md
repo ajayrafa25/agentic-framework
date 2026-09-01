@@ -1,24 +1,25 @@
 # Experiment: {{name}}
 
-Collaborative ML experiment workspace. Edit configs, run training scripts, and track metrics with your team.
+Plain **PyTorch** workspace. Config in `config/experiment.yaml`. Each epoch writes `experiments/logs/metrics.json` so Forge Charts update live.
 
-## Structure
+## Setup
 
-- `config/` — hyperparameters and experiment settings
-- `src/` — training, evaluation, and model code
-- `notebooks/` — exploratory analysis
-- `experiments/` — run outputs, checkpoints, logs
-- `data/` — dataset references (not stored in git)
+```bash
+pip install -r requirements.txt
+# CPU-only machines:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+```
 
-## Quick start
+## Train
 
 ```bash
 python scripts/validate_config.py
 python scripts/train.py --dry-run
-python scripts/train.py
-python scripts/evaluate.py
+python scripts/train.py --fast          # 1 epoch, 2 batches (smoke test)
+python scripts/train.py                 # full run from yaml
+python scripts/evaluate.py              # test split, loads experiments/checkpoints/best.pt
 ```
 
-## Team workflow
+Default: **ResNet-18** on **CIFAR-10**, CIFAR stem (3×3 conv, no max-pool). Switch `model.architecture` to `resnet50` or `vit-b16` (ViT resizes to 224). Add datasets in `src/data.py`.
 
-Discuss changes in the session chat before training. Use `@forge` to ask the agent to modify configs or training code based on team discussion.
+Device is `training.device: auto` (CUDA if present, else CPU).

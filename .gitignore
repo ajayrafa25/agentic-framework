@@ -9,4 +9,7 @@ workspaces/*
 *.log
 .DS_Store
 *.tsbuildinfo
-*.tsbuildinfo
+**/__pycache__/
+*.pyc
+templates/ml-experiment/data/cifar-10-*
+templates/ml-experiment/experiments/

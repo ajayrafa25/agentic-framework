@@ -88,8 +88,8 @@ export class SessionStore {
     let configText = await fs.readFile(configPath, "utf-8");
     configText = configText
       .replace(/\{\{name\}\}/g, input.name)
-      .replace(/architecture: resnet50/, `architecture: ${input.modelArchitecture}`)
-      .replace(/dataset: cifar10/, `dataset: ${input.dataset}`);
+      .replace(/^(\s*architecture:\s*).+$/m, `$1${input.modelArchitecture}`)
+      .replace(/^(\s*dataset:\s*).+$/m, `$1${input.dataset}`);
     await fs.writeFile(configPath, configText);
 
     const readmePath = path.join(workspacePath, "README.md");
@@ -186,9 +186,9 @@ export class SessionStore {
     if (sessions.size > 0) return;
 
     const baseline = await this.create({
-      name: "resnet50-cifar10-baseline",
+      name: "resnet18-cifar10-baseline",
       description: "Baseline image classifier — team is tuning learning rate and augmentation",
-      modelArchitecture: "resnet50",
+      modelArchitecture: "resnet18",
       dataset: "cifar10",
       createdBy: "u1",
     });

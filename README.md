@@ -20,6 +20,8 @@ The agent **Forge** reads team chat and applies agreed config changes (learning 
 ```bash
 pnpm install
 pip install -r templates/ml-experiment/requirements.txt
+# CPU-only:
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pnpm dev
 ```
 
@@ -31,9 +33,10 @@ pnpm dev
 ```
 config/experiment.yaml    # hyperparameters
 src/                      # model & training code
-scripts/train.py          # training (demo simulator)
-scripts/evaluate.py       # evaluation
-experiments/logs/         # metrics.json written during training
+scripts/train.py          # plain PyTorch (CIFAR-10 / ResNet)
+scripts/evaluate.py       # test-set eval from best.pt
+experiments/logs/         # metrics.json after each epoch
+experiments/checkpoints/  # best.pt, last.pt
 ```
 
 ## Team workflow
@@ -52,11 +55,11 @@ experiments/logs/         # metrics.json written during training
 | `apps/web` | Next.js UI |
 | `apps/server` | Express + Socket.io + sessions + terminal |
 | `packages/shared` | Shared TypeScript types |
-| `templates/ml-experiment` | Generic ML experiment template |
+| `templates/ml-experiment` | Plain PyTorch experiment template (CIFAR-10) |
 
 ## Roadmap
 
 - Git worktrees / PR export to GitHub
-- Real GPU training integration (PyTorch, JAX, etc.)
-- Checkpoint browser and inference previews
-- Optional LLM-backed Forge agent (OpenAI / Anthropic)
+- Persist sessions across server restarts
+- Checkpoint browser
+- Optional LLM-backed Forge agent
