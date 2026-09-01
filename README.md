@@ -47,6 +47,23 @@ experiments/checkpoints/  # best.pt, last.pt
 4. `@forge set learning rate to 3e-4` — agent applies team-agreed changes
 5. Run training in the **shared terminal**
 6. Watch **metrics** update live for the whole team
+7. **Open GitHub PR** from the session header (optional — needs GitHub env vars)
+
+Sessions, chat, plans, and activity survive server restarts (`data/forge-state.json`). Each workspace is its own git repo on branch `experiment/<id>`.
+
+## GitHub pull requests
+
+Set these environment variables on the API server, then use **Open GitHub PR** in a session:
+
+```bash
+export GITHUB_TOKEN=ghp_...
+export GITHUB_OWNER=your-org
+export GITHUB_REPO=your-experiments-repo
+# optional:
+export GITHUB_BASE_BRANCH=main
+```
+
+Forge commits the workspace, pushes `experiment/<id>` to that repo, and opens a PR that links back to the Forge session.
 
 ## Monorepo
 
@@ -59,7 +76,6 @@ experiments/checkpoints/  # best.pt, last.pt
 
 ## Roadmap
 
-- Git worktrees / PR export to GitHub
-- Persist sessions across server restarts
 - Checkpoint browser
 - Optional LLM-backed Forge agent
+- GitHub OAuth for real team identity

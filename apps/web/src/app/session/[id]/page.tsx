@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
 import { DEMO_USERS } from "@agentic/shared";
-import { fetchSession, fetchSessions } from "@/lib/api";
+import { fetchGitStatus, fetchSession, fetchSessions, openPullRequest } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -20,11 +20,22 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const [session, setSession] = useState<ExperimentSession | null>(null);
   const [sessions, setSessions] = useState<ExperimentSession[]>([]);
   const [tab, setTab] = useState<"run" | "plan" | "config">("run");
+  const [git, setGit] = useState<{
+    dirty?: boolean;
+    lastCommit?: string;
+    githubConfigured?: boolean;
+  }>({});
+  const [prBusy, setPrBusy] = useState(false);
+  const [prError, setPrError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSession(sessionId).then(setSession);
     fetchSessions().then(setSessions);
-    const interval = setInterval(() => fetchSession(sessionId).then(setSession), 5000);
+    fetchGitStatus(sessionId).then(setGit);
+    const interval = setInterval(() => {
+      fetchSession(sessionId).then(setSession);
+      fetchGitStatus(sessionId).then(setGit);
+    }, 5000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
@@ -74,11 +85,44 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
               <h2 className="font-semibold text-[15px] text-balance">{session.name}</h2>
               <StatusBadge status={session.status} />
               <span className="text-[11px] text-muted font-mono ml-auto">{session.branch}</span>
+              {session.githubPrUrl ? (
+                <a
+                  href={session.githubPrUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[12px] text-link hover:underline"
+                >
+                  View PR
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled={prBusy}
+                  onClick={async () => {
+                    setPrBusy(true);
+                    setPrError(null);
+                    try {
+                      const result = await openPullRequest(sessionId);
+                      setSession({ ...session, githubPrUrl: result.url });
+                    } catch (err) {
+                      setPrError(err instanceof Error ? err.message : "Failed to open PR");
+                    } finally {
+                      setPrBusy(false);
+                    }
+                  }}
+                  className="h-6 px-2 rounded-md bg-accent text-[#1a1a1a] text-[12px] font-medium disabled:opacity-60"
+                >
+                  {prBusy ? "Opening…" : "Open GitHub PR"}
+                </button>
+              )}
             </div>
             <p className="text-[12px] text-muted mb-2">
               {session.modelArchitecture} · {session.dataset}
               {session.description ? ` — ${session.description}` : ""}
+              {git.lastCommit ? ` · ${git.lastCommit}` : ""}
+              {git.dirty ? " · uncommitted changes" : ""}
             </p>
+            {prError ? <p className="text-[12px] text-red-600 mb-2">{prError}</p> : null}
             <div className="flex gap-5 text-[13px]">
               {tabs.map((t) => (
                 <button

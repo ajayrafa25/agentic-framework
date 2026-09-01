@@ -4,6 +4,8 @@ dist
 .turbo
 workspaces/*
 !workspaces/.gitkeep
+data/*
+!data/.gitkeep
 .env
 .env.local
 *.log
