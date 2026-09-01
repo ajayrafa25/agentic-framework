@@ -68,9 +68,9 @@ export function MetricsPanel({ sessionId, userName }: { sessionId: string; userN
           {history.length > 0 && (
             <ResponsiveContainer width="100%" height={140}>
               <LineChart data={history} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#d0d7de" strokeDasharray="3 3" />
-                <XAxis dataKey="epoch" stroke="#656d76" fontSize={11} tickLine={false} />
-                <YAxis stroke="#656d76" fontSize={11} tickLine={false} width={40} />
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis dataKey="epoch" stroke="#6b7280" fontSize={11} tickLine={false} />
+                <YAxis stroke="#6b7280" fontSize={11} tickLine={false} width={40} />
                 <Tooltip
                   contentStyle={{
                     background: "#fff",
@@ -78,9 +78,9 @@ export function MetricsPanel({ sessionId, userName }: { sessionId: string; userN
                     fontSize: 12,
                   }}
                 />
-                <Line type="monotone" dataKey="trainLoss" stroke="#0969da" dot={false} strokeWidth={1.5} name="train" />
-                <Line type="monotone" dataKey="valLoss" stroke="#cf222e" dot={false} strokeWidth={1.5} name="val" />
-                <Line type="monotone" dataKey="primaryMetric" stroke="#1f883d" dot={false} strokeWidth={1.5} name={metrics.primaryMetricName} />
+                <Line type="monotone" dataKey="trainLoss" stroke="#277da1" dot={false} strokeWidth={1.5} name="train" />
+                <Line type="monotone" dataKey="valLoss" stroke="#e63946" dot={false} strokeWidth={1.5} name="val" />
+                <Line type="monotone" dataKey="primaryMetric" stroke="#f9c74f" dot={false} strokeWidth={1.5} name={metrics.primaryMetricName} />
               </LineChart>
             </ResponsiveContainer>
           )}

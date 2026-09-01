@@ -1,19 +1,19 @@
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    planning: "bg-[#fff8c5] text-[#9a6700] border-[#d4a72c66]",
-    training: "bg-[#ddf4ff] text-[#0969da] border-[#54aeff66]",
-    evaluating: "bg-[#ddf4ff] text-[#0969da] border-[#54aeff66]",
-    ready: "bg-[#dafbe1] text-[#1a7f37] border-[#4ac26b66]",
-    merged: "bg-[#f6f8fa] text-[#656d76] border-[#d0d7de]",
-    running: "bg-[#ddf4ff] text-[#0969da] border-[#54aeff66]",
-    completed: "bg-[#dafbe1] text-[#1a7f37] border-[#4ac26b66]",
-    failed: "bg-[#ffebe9] text-[#cf222e] border-[#ff818266]",
-    idle: "bg-[#f6f8fa] text-[#656d76] border-[#d0d7de]",
+    planning: "bg-[#fff3cd] text-[#7a5b00]",
+    training: "bg-[#d6eaf4] text-[#1d5a73]",
+    evaluating: "bg-[#d6eaf4] text-[#1d5a73]",
+    ready: "bg-[#d8f3ee] text-[#1b6b61]",
+    merged: "bg-surface-2 text-muted",
+    running: "bg-[#d6eaf4] text-[#1d5a73]",
+    completed: "bg-[#d8f3ee] text-[#1b6b61]",
+    failed: "bg-[#fde8ea] text-[#9b1c28]",
+    idle: "bg-surface-2 text-muted",
   };
 
   return (
     <span
-      className={`inline-flex items-center h-5 px-1.5 rounded-full border text-[11px] font-medium capitalize ${
+      className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-medium capitalize ${
         styles[status] ?? styles.idle
       }`}
     >
