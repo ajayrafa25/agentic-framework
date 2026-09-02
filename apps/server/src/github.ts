@@ -19,7 +19,12 @@ function githubConfig() {
 
 export function githubConfigured(): boolean {
   const { token, owner, repo } = githubConfig();
-  return Boolean(token && owner && repo);
+  return Boolean(owner && repo && token);
+}
+
+export function githubRepoConfigured(): boolean {
+  const { owner, repo } = githubConfig();
+  return Boolean(owner && repo);
 }
 
 async function githubFetch(path: string, token: string, init: RequestInit = {}) {
@@ -45,12 +50,17 @@ async function githubFetch(path: string, token: string, init: RequestInit = {}) 
 
 export async function openSessionPullRequest(
   session: ExperimentSession,
-  workspacePath: string
+  workspacePath: string,
+  userGithubToken?: string
 ): Promise<{ url: string; created: boolean }> {
-  const { token, owner, repo, base } = githubConfig();
+  const cfg = githubConfig();
+  const token = userGithubToken || cfg.token;
+  const owner = cfg.owner;
+  const repo = cfg.repo;
+  const base = cfg.base;
   if (!token || !owner || !repo) {
     throw new GithubConfigError(
-      "Set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO to open a pull request."
+      "Sign in with GitHub (and set GITHUB_OWNER / GITHUB_REPO), or set GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO."
     );
   }
 

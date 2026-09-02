@@ -10,7 +10,8 @@ import {
   type TrainingMetrics,
 } from "@agentic/shared";
 import { STATE_PATH, TEMPLATE_DIR, WORKSPACES_DIR } from "./config.js";
-import { GitError, gitStatus, initWorkspaceRepo } from "./git.js";
+import { writeWorkspaceFile } from "./files.js";
+import { GitError, commitWorkspaceChanges, gitStatus, initWorkspaceRepo } from "./git.js";
 
 function displayName(userId: string): string {
   return DEMO_USERS.find((u) => u.id === userId)?.name ?? userId;
@@ -133,6 +134,7 @@ export class SessionStore {
     modelArchitecture: string;
     dataset: string;
     createdBy: string;
+    createdByName?: string;
   }): Promise<ExperimentSession> {
     const id = uuid();
     const branch = `experiment/${id.slice(0, 8)}`;
@@ -200,7 +202,7 @@ export class SessionStore {
       sessionId: id,
       sessionName: input.name,
       userId: input.createdBy,
-      userName: displayName(input.createdBy),
+      userName: input.createdByName ?? displayName(input.createdBy),
       action: "Created experiment session",
     });
 
@@ -236,6 +238,40 @@ export class SessionStore {
     chatHistory.set(message.sessionId, list);
     const session = sessions.get(message.sessionId);
     if (session) session.updatedAt = new Date().toISOString();
+    persist();
+    return message;
+  }
+
+  findProposal(sessionId: string, proposalId: string): ChatMessage | undefined {
+    return this.getChat(sessionId).find((m) => m.proposal?.id === proposalId);
+  }
+
+  async applyProposal(sessionId: string, proposalId: string): Promise<ChatMessage | undefined> {
+    const message = this.findProposal(sessionId, proposalId);
+    const proposal = message?.proposal;
+    const session = sessions.get(sessionId);
+    if (!message || !proposal || !session) return undefined;
+    if (proposal.status !== "pending") return message;
+    for (const file of proposal.files) {
+      if (file.path.includes("..") || file.path.startsWith("/")) continue;
+      await writeWorkspaceFile(session.workspacePath, file.path, file.after);
+    }
+    try {
+      await commitWorkspaceChanges(session.workspacePath, `forge: ${proposal.summary}`);
+    } catch {
+      // workspace may not be a git repo yet
+    }
+    proposal.status = "applied";
+    session.updatedAt = new Date().toISOString();
+    persist();
+    return message;
+  }
+
+  dismissProposal(sessionId: string, proposalId: string): ChatMessage | undefined {
+    const message = this.findProposal(sessionId, proposalId);
+    if (!message?.proposal) return undefined;
+    if (message.proposal.status !== "pending") return message;
+    message.proposal.status = "dismissed";
     persist();
     return message;
   }

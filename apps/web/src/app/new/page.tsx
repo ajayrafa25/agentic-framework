@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSession } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function NewSessionPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [architecture, setArchitecture] = useState("resnet18");
@@ -22,7 +24,7 @@ export default function NewSessionPage() {
       description,
       modelArchitecture: architecture,
       dataset,
-      createdBy: "u1",
+      createdBy: user.id,
     });
     router.push(`/session/${session.id}`);
   }

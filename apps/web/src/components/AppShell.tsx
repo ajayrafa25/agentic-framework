@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
+import { githubLoginUrl, logout } from "@/lib/api";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const inSession = pathname.startsWith("/session/");
+  const { user, githubOAuth } = useAuth();
 
   return (
     <div className="h-dvh flex bg-bg">
@@ -32,8 +35,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             New run
           </Link>
         </nav>
-        <div className="mt-auto p-3 border-t border-white/10 text-[12px] text-white/50">
-          {inSession ? "Workspace" : "team / default"}
+        <div className="mt-auto p-3 border-t border-white/10 text-[12px] text-white/70 space-y-2">
+          <div className="flex items-center gap-2">
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="size-5 rounded-full" />
+            ) : (
+              <span className="size-5 rounded-full bg-white/20 inline-flex items-center justify-center text-[10px]">
+                {user.name.slice(0, 1)}
+              </span>
+            )}
+            <span className="truncate">{user.name}</span>
+          </div>
+          {user.source === "github" ? (
+            <button
+              type="button"
+              className="text-white/50 hover:text-white"
+              onClick={() => logout().then(() => location.reload())}
+            >
+              Sign out
+            </button>
+          ) : githubOAuth ? (
+            <a href={githubLoginUrl()} className="text-accent hover:underline">
+              Sign in with GitHub
+            </a>
+          ) : (
+            <div className="text-white/40">{inSession ? "Workspace" : "demo user"}</div>
+          )}
         </div>
       </aside>
       <div className="flex-1 flex flex-col min-w-0 min-h-0">{children}</div>

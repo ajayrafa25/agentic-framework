@@ -5,6 +5,46 @@ export interface User {
   name: string;
   role: "ml-engineer" | "researcher" | "pm" | "data-scientist";
   color: string;
+  login?: string;
+  avatarUrl?: string;
+  source?: "github" | "demo";
+}
+
+export interface AuthUser {
+  id: UserId;
+  name: string;
+  login?: string;
+  avatarUrl?: string;
+  source: "github" | "demo";
+}
+
+export interface ForgeFileChange {
+  path: string;
+  before: string;
+  after: string;
+}
+
+export interface ForgeProposal {
+  id: string;
+  status: "pending" | "applied" | "dismissed";
+  summary: string;
+  files: ForgeFileChange[];
+}
+
+export interface CheckpointInfo {
+  name: string;
+  path: string;
+  size: number;
+  mtime: string;
+}
+
+export interface TrainJobStatus {
+  sessionId: string;
+  status: "running" | "completed" | "failed" | "idle";
+  fast: boolean;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
 }
 
 export interface ExperimentSession {
@@ -51,6 +91,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   type: "user" | "agent" | "system";
+  proposal?: ForgeProposal;
 }
 
 export interface PlanDocument {

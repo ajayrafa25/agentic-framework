@@ -4,7 +4,6 @@ import { use, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
-import { DEMO_USERS } from "@agentic/shared";
 import { fetchGitStatus, fetchSession, fetchSessions, openPullRequest } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -12,19 +11,20 @@ import { ChatPanel } from "@/components/ChatPanel";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { PlanEditor } from "@/components/PlanEditor";
+import { CheckpointsPanel } from "@/components/CheckpointsPanel";
+import { useAuth } from "@/components/AuthProvider";
 
 const TerminalPanel = dynamic(
   () => import("@/components/TerminalPanel").then((m) => m.TerminalPanel),
   { ssr: false }
 );
 
-const CURRENT_USER = DEMO_USERS[0];
-
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: sessionId } = use(params);
+  const { user } = useAuth();
   const [session, setSession] = useState<ExperimentSession | null>(null);
   const [sessions, setSessions] = useState<ExperimentSession[]>([]);
-  const [tab, setTab] = useState<"run" | "plan" | "config">("run");
+  const [tab, setTab] = useState<"run" | "plan" | "config" | "checkpoints">("run");
   const [git, setGit] = useState<{
     dirty?: boolean;
     lastCommit?: string;
@@ -56,6 +56,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     { id: "run" as const, label: "Charts" },
     { id: "plan" as const, label: "Plan" },
     { id: "config" as const, label: "Config" },
+    { id: "checkpoints" as const, label: "Checkpoints" },
   ];
 
   return (
@@ -145,13 +146,13 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
           {tab === "run" && (
             <div className="flex-1 grid grid-cols-[minmax(260px,0.9fr)_minmax(380px,1.2fr)] min-h-0">
-              <ChatPanel sessionId={sessionId} userName={CURRENT_USER.name} userId={CURRENT_USER.id} />
+              <ChatPanel sessionId={sessionId} userName={user.name} userId={user.id} />
               <div className="flex flex-col min-h-0 border-l border-border">
                 <div className="h-[46%] min-h-0">
-                  <MetricsPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                  <MetricsPanel sessionId={sessionId} userName={user.name} />
                 </div>
                 <div className="flex-1 min-h-0 border-t border-border">
-                  <TerminalPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                  <TerminalPanel sessionId={sessionId} userName={user.name} />
                 </div>
               </div>
             </div>
@@ -159,13 +160,19 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
           {tab === "plan" && (
             <div className="flex-1 min-h-0">
-              <PlanEditor sessionId={sessionId} userId={CURRENT_USER.id} />
+              <PlanEditor sessionId={sessionId} userId={user.id} />
             </div>
           )}
 
           {tab === "config" && (
             <div className="flex-1 min-h-0">
               <ConfigEditor sessionId={sessionId} />
+            </div>
+          )}
+
+          {tab === "checkpoints" && (
+            <div className="flex-1 min-h-0">
+              <CheckpointsPanel sessionId={sessionId} />
             </div>
           )}
         </div>

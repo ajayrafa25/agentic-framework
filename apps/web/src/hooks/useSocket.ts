@@ -3,12 +3,13 @@
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { API_URL } from "@/lib/config";
+import { getForgeToken } from "@/lib/api";
 
 let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(API_URL, { autoConnect: true });
+    socket = io(API_URL, { autoConnect: true, auth: { token: getForgeToken() } });
   }
   return socket;
 }

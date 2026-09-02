@@ -44,12 +44,35 @@ experiments/checkpoints/  # best.pt, last.pt
 1. Create an experiment session
 2. Discuss in chat — PMs, researchers, and engineers in the same room
 3. Edit the **plan** and **config** together
-4. `@forge set learning rate to 3e-4` — agent applies team-agreed changes
-5. Run training in the **shared terminal**
-6. Watch **metrics** update live for the whole team
-7. **Open GitHub PR** from the session header (optional — needs GitHub env vars)
+4. `@forge set learning rate to 3e-4` — Forge **proposes** a config diff; Apply in chat when the team agrees
+5. **Start training** / **Smoke train** from Charts (job, not just the terminal)
+6. Watch **metrics** and **checkpoints**
+7. **Open GitHub PR** from the session header
 
 Sessions, chat, plans, and activity survive server restarts (`data/forge-state.json`). Each workspace is its own git repo on branch `experiment/<id>`.
+
+## GitHub OAuth
+
+Optional. Without it, Forge uses a demo user (Maggie).
+
+```bash
+export GITHUB_CLIENT_ID=...
+export GITHUB_CLIENT_SECRET=...
+# default callback:
+# export GITHUB_OAUTH_CALLBACK=http://localhost:3001/auth/github/callback
+```
+
+Register that callback on the GitHub OAuth app. After login, Forge stores a session token in the browser and uses your GitHub token when opening PRs (still needs `GITHUB_OWNER` / `GITHUB_REPO`).
+
+## LLM-backed Forge
+
+Optional. If unset, `@forge` uses rule-based proposals (LR, epochs, augmentation).
+
+```bash
+export OPENAI_API_KEY=...
+# or
+export ANTHROPIC_API_KEY=...
+```
 
 ## GitHub pull requests
 
@@ -76,6 +99,6 @@ Forge commits the workspace, pushes `experiment/<id>` to that repo, and opens a 
 
 ## Roadmap
 
-- Checkpoint browser
-- Optional LLM-backed Forge agent
-- GitHub OAuth for real team identity
+- Postgres instead of the JSON session file
+- Per-session runtime (container / microVM)
+- Object storage for checkpoints

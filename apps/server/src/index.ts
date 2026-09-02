@@ -4,19 +4,80 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import { v4 as uuid } from "uuid";
 import type { ChatMessage } from "@agentic/shared";
-import { SERVER_PORT, WEB_ORIGIN } from "./config.js";
+import { SERVER_PORT, WEB_ORIGIN, githubOAuthEnabled, llmEnabled } from "./config.js";
 import { sessionStore } from "./session-store.js";
 import { buildFileTree, readWorkspaceFile, writeWorkspaceFile } from "./files.js";
 import { createAgentMessage, handleForgeRequest, shouldInvokeForge } from "./agent.js";
 import { spawnTerminal } from "./terminal.js";
-import { GithubConfigError, githubConfigured, openSessionPullRequest } from "./github.js";
+import { GithubConfigError, githubConfigured, githubRepoConfigured, openSessionPullRequest } from "./github.js";
 import { GitError } from "./git.js";
+import {
+  bearerFromHeader,
+  destroyAuthSession,
+  exchangeGithubCode,
+  githubAuthorizeUrl,
+  githubTokenFor,
+  loginRedirect,
+  resolveRequestUser,
+} from "./auth.js";
+import { listCheckpoints } from "./checkpoints.js";
+import { getTrainJob, startTrainJob, stopTrainJob } from "./train-job.js";
 
 const app = express();
-app.use(cors({ origin: WEB_ORIGIN }));
+app.use(cors({ origin: WEB_ORIGIN, credentials: true }));
 app.use(express.json());
 
+const oauthStates = new Set<string>();
+
+function tokenFromReq(req: express.Request): string | undefined {
+  return bearerFromHeader(req.headers.authorization) ?? (req.query.forge_token as string | undefined);
+}
+
 app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/config", (_req, res) => {
+  res.json({
+    githubOAuth: githubOAuthEnabled(),
+    llm: llmEnabled(),
+    githubRepo: githubRepoConfigured(),
+    githubToken: githubConfigured(),
+  });
+});
+
+app.get("/api/me", (req, res) => {
+  res.json(resolveRequestUser(tokenFromReq(req)));
+});
+
+app.get("/auth/github", (_req, res) => {
+  if (!githubOAuthEnabled()) {
+    res.status(501).send("Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to enable GitHub login.");
+    return;
+  }
+  const state = uuid();
+  oauthStates.add(state);
+  res.redirect(githubAuthorizeUrl(state));
+});
+
+app.get("/auth/github/callback", async (req, res) => {
+  const { code, state } = req.query as { code?: string; state?: string };
+  if (!code || !state || !oauthStates.has(state)) {
+    res.status(400).send("Invalid OAuth callback");
+    return;
+  }
+  oauthStates.delete(state);
+  try {
+    const session = await exchangeGithubCode(code);
+    res.redirect(loginRedirect(session.token));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "OAuth failed";
+    res.status(500).send(message);
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  destroyAuthSession(tokenFromReq(req));
   res.json({ ok: true });
 });
 
@@ -30,10 +91,11 @@ app.get("/api/sessions/:id", (req, res) => {
     res.status(404).json({ error: "Session not found" });
     return;
   }
-  res.json(session);
+  res.json({ ...session, trainJob: getTrainJob(req.params.id) });
 });
 
 app.post("/api/sessions", async (req, res) => {
+  const user = resolveRequestUser(tokenFromReq(req));
   const { name, description, modelArchitecture, dataset, createdBy } = req.body;
   if (!name || !modelArchitecture || !dataset) {
     res.status(400).json({ error: "name, modelArchitecture, and dataset are required" });
@@ -44,7 +106,8 @@ app.post("/api/sessions", async (req, res) => {
     description: description ?? "",
     modelArchitecture,
     dataset,
-    createdBy: createdBy ?? "u1",
+    createdBy: createdBy ?? user.id,
+    createdByName: user.name,
   });
   res.status(201).json(session);
 });
@@ -63,7 +126,8 @@ app.get("/api/sessions/:id/plan", (req, res) => {
 });
 
 app.put("/api/sessions/:id/plan", (req, res) => {
-  const plan = sessionStore.updatePlan(req.params.id, req.body.content, req.body.updatedBy ?? "u1");
+  const user = resolveRequestUser(tokenFromReq(req));
+  const plan = sessionStore.updatePlan(req.params.id, req.body.content, req.body.updatedBy ?? user.id);
   if (!plan) {
     res.status(404).json({ error: "Plan not found" });
     return;
@@ -107,6 +171,78 @@ app.put("/api/sessions/:id/file", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/sessions/:id/checkpoints", async (req, res) => {
+  const session = sessionStore.get(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  res.json(await listCheckpoints(session.workspacePath));
+});
+
+app.get("/api/sessions/:id/train", (req, res) => {
+  if (!sessionStore.get(req.params.id)) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  res.json(getTrainJob(req.params.id));
+});
+
+app.post("/api/sessions/:id/train", (req, res) => {
+  const session = sessionStore.get(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  const status = startTrainJob(session.id, session.workspacePath, io, Boolean(req.body?.fast));
+  const user = resolveRequestUser(tokenFromReq(req));
+  sessionStore.addActivity({
+    sessionId: session.id,
+    sessionName: session.name,
+    userId: user.id,
+    userName: user.name,
+    action: status.fast ? "Started a smoke training job" : "Started a training job",
+  });
+  res.json(status);
+});
+
+app.post("/api/sessions/:id/train/stop", (req, res) => {
+  if (!sessionStore.get(req.params.id)) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  res.json(stopTrainJob(req.params.id, io));
+});
+
+app.post("/api/sessions/:id/proposals/:proposalId/apply", async (req, res) => {
+  const message = await sessionStore.applyProposal(req.params.id, req.params.proposalId);
+  if (!message) {
+    res.status(404).json({ error: "Proposal not found" });
+    return;
+  }
+  const session = sessionStore.get(req.params.id);
+  const user = resolveRequestUser(tokenFromReq(req));
+  sessionStore.addActivity({
+    sessionId: req.params.id,
+    sessionName: session?.name ?? req.params.id,
+    userId: user.id,
+    userName: user.name,
+    action: "Applied a Forge proposal",
+  });
+  io.to(`session:${req.params.id}`).emit("proposal:updated", message);
+  res.json(message);
+});
+
+app.post("/api/sessions/:id/proposals/:proposalId/dismiss", (req, res) => {
+  const message = sessionStore.dismissProposal(req.params.id, req.params.proposalId);
+  if (!message) {
+    res.status(404).json({ error: "Proposal not found" });
+    return;
+  }
+  io.to(`session:${req.params.id}`).emit("proposal:updated", message);
+  res.json(message);
+});
+
 app.get("/api/sessions/:id/git", async (req, res) => {
   const session = sessionStore.get(req.params.id);
   if (!session) {
@@ -114,10 +250,11 @@ app.get("/api/sessions/:id/git", async (req, res) => {
     return;
   }
   const status = await sessionStore.workspaceGitStatus(req.params.id);
+  const userToken = githubTokenFor(tokenFromReq(req));
   res.json({
     ...status,
     githubPrUrl: session.githubPrUrl,
-    githubConfigured: githubConfigured(),
+    githubConfigured: githubConfigured() || Boolean(userToken && githubRepoConfigured()),
   });
 });
 
@@ -127,14 +264,19 @@ app.post("/api/sessions/:id/github-pr", async (req, res) => {
     res.status(404).json({ error: "Session not found" });
     return;
   }
+  const user = resolveRequestUser(tokenFromReq(req));
   try {
-    const result = await openSessionPullRequest(session, session.workspacePath);
+    const result = await openSessionPullRequest(
+      session,
+      session.workspacePath,
+      githubTokenFor(tokenFromReq(req))
+    );
     sessionStore.setGithubPrUrl(session.id, result.url);
     sessionStore.addActivity({
       sessionId: session.id,
       sessionName: session.name,
-      userId: req.body.userId ?? "u1",
-      userName: req.body.userName ?? "Maggie",
+      userId: user.id,
+      userName: user.name,
       action: result.created ? "Opened a GitHub pull request" : "Updated GitHub pull request",
     });
     res.json({ url: result.url, created: result.created });
@@ -171,26 +313,26 @@ app.get("/api/dashboard", (_req, res) => {
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: WEB_ORIGIN, methods: ["GET", "POST"] },
+  cors: { origin: WEB_ORIGIN, methods: ["GET", "POST"], credentials: true },
 });
 
 io.on("connection", (socket) => {
-  let joinedSessionId: string | null = null;
-  let userName = "Anonymous";
+  let userName = resolveRequestUser(socket.handshake.auth?.token as string | undefined).name;
 
   socket.on("join", ({ sessionId, user }: { sessionId: string; user: { name: string } }) => {
-    joinedSessionId = sessionId;
-    userName = user.name;
+    userName = user.name || userName;
     socket.join(`session:${sessionId}`);
     socket.emit("chat:history", sessionStore.getChat(sessionId));
+    socket.emit("train:status", getTrainJob(sessionId));
   });
 
   socket.on("chat:send", async ({ sessionId, userId, content }: { sessionId: string; userId: string; content: string }) => {
+    const user = resolveRequestUser(socket.handshake.auth?.token as string | undefined);
     const message: ChatMessage = {
       id: uuid(),
       sessionId,
-      userId,
-      userName,
+      userId: userId || user.id,
+      userName: userName || user.name,
       content,
       timestamp: new Date().toISOString(),
       type: "user",
@@ -202,15 +344,15 @@ io.on("connection", (socket) => {
     sessionStore.addActivity({
       sessionId,
       sessionName: sessionStore.get(sessionId)?.name ?? sessionId,
-      userId,
-      userName,
+      userId: message.userId,
+      userName: message.userName,
       action: `Commented in chat`,
     });
 
     if (shouldInvokeForge(content)) {
       const history = sessionStore.getChat(sessionId);
-      const response = await handleForgeRequest(sessionId, content, history);
-      const agentMsg = createAgentMessage(sessionId, response);
+      const result = await handleForgeRequest(sessionId, content, history);
+      const agentMsg = createAgentMessage(sessionId, result);
       sessionStore.addChat(agentMsg);
       io.to(`session:${sessionId}`).emit("chat:message", agentMsg);
     }
