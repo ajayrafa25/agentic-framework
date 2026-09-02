@@ -3,91 +3,98 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
-import { fetchDashboard } from "@/lib/api";
+import { fetchDashboard, fetchSessions } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
+import { StatusBadge } from "@/components/StatusBadge";
+import { relativeTime } from "@/lib/time";
 
-interface DashboardData {
-  pickBackUp: ExperimentSession[];
-  recentSessions: ExperimentSession[];
-  teamPulse: Array<{ userName: string; action: string; sessionName: string; timestamp: string }>;
-  summary: string;
+interface Activity {
+  userName: string;
+  action: string;
+  sessionName: string;
+  timestamp: string;
 }
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [sessions, setSessions] = useState<ExperimentSession[]>([]);
+  const [activity, setActivity] = useState<Activity[]>([]);
 
   useEffect(() => {
-    fetchDashboard().then(setData);
+    fetchSessions().then(setSessions);
+    fetchDashboard().then((d) => setActivity(d.teamPulse ?? []));
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg">
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Forge</h1>
-          <p className="text-sm text-muted">Collaborative ML development</p>
+    <AppShell>
+      <header className="h-12 shrink-0 border-b border-border bg-surface px-4 flex items-center justify-between">
+        <div className="text-[13px] text-muted">
+          <span className="text-text font-medium">Runs</span>
+          <span className="mx-2">/</span>
+          default
         </div>
         <Link
           href="/new"
-          className="rounded-lg bg-accent/20 text-accent px-4 py-2 text-sm font-medium hover:bg-accent/30"
+          className="h-7 px-3 rounded-md bg-accent text-[#1a1a1a] text-[13px] font-medium inline-flex items-center hover:brightness-95"
         >
-          New experiment
+          New run
         </Link>
       </header>
 
-      <main className="max-w-6xl mx-auto p-6 grid gap-6 md:grid-cols-2">
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">Morning briefing</h2>
-          <p className="text-lg leading-relaxed">{data?.summary ?? "Loading..."}</p>
-        </section>
+      <div className="flex-1 min-h-0 grid grid-cols-[1fr_240px]">
+        <div className="overflow-auto p-4">
+          <table className="w-full text-[13px] bg-surface border border-border rounded-md overflow-hidden">
+            <thead className="bg-surface-2 text-muted text-left">
+              <tr>
+                <th className="font-medium px-3 py-2">Name</th>
+                <th className="font-medium px-3 py-2">State</th>
+                <th className="font-medium px-3 py-2">Model</th>
+                <th className="font-medium px-3 py-2">Dataset</th>
+                <th className="font-medium px-3 py-2">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((s) => (
+                <tr key={s.id} className="border-t border-border hover:bg-surface-2">
+                  <td className="px-3 py-2">
+                    <Link href={`/session/${s.id}`} className="text-link hover:underline font-medium">
+                      {s.name}
+                    </Link>
+                    {s.description ? (
+                      <div className="text-muted text-[12px] mt-0.5 max-w-lg truncate">{s.description}</div>
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StatusBadge status={s.status} />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[12px] tabular">{s.modelArchitecture}</td>
+                  <td className="px-3 py-2 font-mono text-[12px] tabular">{s.dataset}</td>
+                  <td className="px-3 py-2 text-muted whitespace-nowrap">{relativeTime(s.updatedAt)}</td>
+                </tr>
+              ))}
+              {sessions.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-3 py-10 text-center text-muted">
+                    No runs in this project.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">Pick back up</h2>
-          <div className="space-y-2">
-            {(data?.pickBackUp ?? []).map((s) => (
-              <Link
-                key={s.id}
-                href={`/session/${s.id}`}
-                className="block rounded-lg border border-border bg-surface-2 p-3 hover:border-accent/40 transition"
-              >
-                <div className="font-medium">{s.name}</div>
-                <div className="text-sm text-muted">{s.modelArchitecture} · {s.dataset} · {s.status}</div>
-              </Link>
+        <aside className="border-l border-border bg-surface p-4 overflow-auto">
+          <h2 className="text-[12px] font-semibold text-muted mb-3 uppercase tracking-wide">Activity</h2>
+          <ul className="space-y-3 text-[12px] text-pretty">
+            {activity.slice(0, 12).map((a, i) => (
+              <li key={i}>
+                <span className="font-medium text-text">{a.userName}</span> {a.action.toLowerCase()}{" "}
+                <span className="text-text">{a.sessionName}</span>
+                <div className="text-muted">{relativeTime(a.timestamp)}</div>
+              </li>
             ))}
-            {data && data.pickBackUp.length === 0 && (
-              <p className="text-muted text-sm">No active experiments. Start a new session.</p>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">Recent experiments</h2>
-          <div className="space-y-2">
-            {(data?.recentSessions ?? []).map((s) => (
-              <Link
-                key={s.id}
-                href={`/session/${s.id}`}
-                className="flex justify-between rounded-lg border border-border bg-surface-2 p-3 hover:border-accent-2/40 transition"
-              >
-                <span>{s.name}</span>
-                <span className="text-muted text-sm">{s.status}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-wide mb-3">Team pulse</h2>
-          <div className="space-y-3">
-            {(data?.teamPulse ?? []).slice(0, 6).map((a, i) => (
-              <div key={i} className="text-sm">
-                <span className="font-medium text-accent-2">{a.userName}</span>
-                <span className="text-muted"> — {a.action} on </span>
-                <span>{a.sessionName}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-    </div>
+          </ul>
+        </aside>
+      </div>
+    </AppShell>
   );
 }

@@ -5,21 +5,26 @@ experiment:
   notes: "Baseline run — discuss hyperparameters in session chat before training"
 
 model:
-  architecture: resnet50
-  pretrained: true
+  architecture: resnet18
+  pretrained: false
   num_classes: 10
 
 data:
   dataset: cifar10
+  data_dir: data
   train_split: 0.9
-  batch_size: 32
-  num_workers: 4
+  batch_size: 128
+  num_workers: 2
+  # Optional CPU caps (omit or set null for the full split)
+  max_train_samples: null
+  max_val_samples: null
   augmentation:
     random_flip: true
     normalize: true
 
 training:
-  epochs: 50
+  device: auto
+  epochs: 20
   optimizer: adamw
   learning_rate: 0.001
   weight_decay: 0.01

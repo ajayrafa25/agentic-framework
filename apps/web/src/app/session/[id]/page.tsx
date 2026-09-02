@@ -1,124 +1,175 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { ExperimentSession } from "@agentic/shared";
 import { DEMO_USERS } from "@agentic/shared";
-import { fetchSession, fetchSessions } from "@/lib/api";
+import { fetchGitStatus, fetchSession, fetchSessions, openPullRequest } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
+import { StatusBadge } from "@/components/StatusBadge";
 import { ChatPanel } from "@/components/ChatPanel";
-import { TerminalPanel } from "@/components/TerminalPanel";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { PlanEditor } from "@/components/PlanEditor";
 
+const TerminalPanel = dynamic(
+  () => import("@/components/TerminalPanel").then((m) => m.TerminalPanel),
+  { ssr: false }
+);
+
 const CURRENT_USER = DEMO_USERS[0];
 
 export default function SessionPage({ params }: { params: Promise<{ id: string }> }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const { id: sessionId } = use(params);
   const [session, setSession] = useState<ExperimentSession | null>(null);
   const [sessions, setSessions] = useState<ExperimentSession[]>([]);
-  const [tab, setTab] = useState<"workspace" | "plan" | "config">("workspace");
+  const [tab, setTab] = useState<"run" | "plan" | "config">("run");
+  const [git, setGit] = useState<{
+    dirty?: boolean;
+    lastCommit?: string;
+    githubConfigured?: boolean;
+  }>({});
+  const [prBusy, setPrBusy] = useState(false);
+  const [prError, setPrError] = useState<string | null>(null);
 
   useEffect(() => {
-    params.then((p) => setSessionId(p.id));
-  }, [params]);
-
-  useEffect(() => {
-    if (!sessionId) return;
     fetchSession(sessionId).then(setSession);
     fetchSessions().then(setSessions);
-    const interval = setInterval(() => fetchSession(sessionId).then(setSession), 5000);
+    fetchGitStatus(sessionId).then(setGit);
+    const interval = setInterval(() => {
+      fetchSession(sessionId).then(setSession);
+      fetchGitStatus(sessionId).then(setGit);
+    }, 5000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
-  if (!sessionId || !session) {
-    return <div className="min-h-screen bg-bg p-8 text-muted">Loading experiment session...</div>;
+  if (!session) {
+    return (
+      <AppShell>
+        <p className="p-6 text-muted">Loading…</p>
+      </AppShell>
+    );
   }
 
-  return (
-    <div className="h-screen flex bg-bg overflow-hidden">
-      <aside className="w-56 border-r border-border flex flex-col shrink-0">
-        <div className="p-4 border-b border-border">
-          <Link href="/" className="text-xs text-muted hover:text-accent">← Dashboard</Link>
-          <h1 className="font-semibold mt-2">Forge</h1>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {sessions.map((s) => (
-            <Link
-              key={s.id}
-              href={`/session/${s.id}`}
-              className={`block rounded-lg px-3 py-2 text-sm ${
-                s.id === sessionId ? "bg-accent/15 text-accent" : "hover:bg-surface-2 text-muted"
-              }`}
-            >
-              {s.name}
-            </Link>
-          ))}
-        </div>
-        <div className="p-3 border-t border-border text-xs text-muted">
-          {session.branch}
-        </div>
-      </aside>
+  const tabs = [
+    { id: "run" as const, label: "Charts" },
+    { id: "plan" as const, label: "Plan" },
+    { id: "config" as const, label: "Config" },
+  ];
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-border px-5 py-3 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="font-semibold">{session.name}</h2>
-            <p className="text-sm text-muted">
-              {session.modelArchitecture} · {session.dataset} · {session.status}
-            </p>
+  return (
+    <AppShell>
+      <div className="flex-1 flex min-h-0">
+        <aside className="w-[200px] border-r border-border bg-surface flex flex-col shrink-0">
+          <div className="h-9 px-3 flex items-center text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
+            Runs
           </div>
-          <div className="flex gap-2 text-sm">
-            {(["workspace", "plan", "config"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3 py-1 rounded-lg ${
-                  tab === t ? "bg-accent/20 text-accent" : "text-muted hover:bg-surface-2"
+          <div className="flex-1 overflow-y-auto py-1">
+            {sessions.map((s, i) => (
+              <Link
+                key={s.id}
+                href={`/session/${s.id}`}
+                className={`flex items-center gap-2 px-3 py-1.5 text-[13px] ${
+                  s.id === sessionId ? "bg-[#fff8e1]" : "hover:bg-surface-2 text-muted hover:text-text"
                 }`}
               >
-                {t === "workspace" ? "Workspace" : t === "plan" ? "Plan" : "Config"}
-              </button>
+                <span
+                  className="size-2 rounded-full shrink-0"
+                  style={{ background: i === 0 ? "#f9c74f" : "#277da1" }}
+                />
+                <span className="truncate">{s.name}</span>
+              </Link>
             ))}
           </div>
-        </header>
+        </aside>
 
-        {tab === "workspace" && (
-          <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 p-3 min-h-0">
-            <ChatPanel sessionId={sessionId} userName={CURRENT_USER.name} userId={CURRENT_USER.id} />
-            <MetricsPanel sessionId={sessionId} userName={CURRENT_USER.name} />
-            <TerminalPanel sessionId={sessionId} userName={CURRENT_USER.name} />
-            <div className="border border-border rounded-xl bg-surface p-4 overflow-y-auto">
-              <h3 className="text-sm font-medium mb-3">Session summary</h3>
-              <p className="text-sm text-muted leading-relaxed mb-4">{session.description || "No description."}</p>
-              <div className="text-xs text-muted space-y-1">
-                <p>Discuss hyperparameters and architecture choices in chat before long runs.</p>
-                <p>Team members share this terminal, config, and metrics view.</p>
-                <p>Use <span className="text-accent">@forge</span> to apply agreed changes to config.</p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {DEMO_USERS.map((u) => (
-                  <span key={u.id} className="text-xs rounded-full px-2 py-1 bg-surface-2" style={{ color: u.color }}>
-                    {u.name}
-                  </span>
-                ))}
-              </div>
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          <div className="bg-surface border-b border-border px-4 pt-3 shrink-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="font-semibold text-[15px] text-balance">{session.name}</h2>
+              <StatusBadge status={session.status} />
+              <span className="text-[11px] text-muted font-mono ml-auto">{session.branch}</span>
+              {session.githubPrUrl ? (
+                <a
+                  href={session.githubPrUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[12px] text-link hover:underline"
+                >
+                  View PR
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled={prBusy}
+                  onClick={async () => {
+                    setPrBusy(true);
+                    setPrError(null);
+                    try {
+                      const result = await openPullRequest(sessionId);
+                      setSession({ ...session, githubPrUrl: result.url });
+                    } catch (err) {
+                      setPrError(err instanceof Error ? err.message : "Failed to open PR");
+                    } finally {
+                      setPrBusy(false);
+                    }
+                  }}
+                  className="h-6 px-2 rounded-md bg-accent text-[#1a1a1a] text-[12px] font-medium disabled:opacity-60"
+                >
+                  {prBusy ? "Opening…" : "Open GitHub PR"}
+                </button>
+              )}
+            </div>
+            <p className="text-[12px] text-muted mb-2">
+              {session.modelArchitecture} · {session.dataset}
+              {session.description ? ` — ${session.description}` : ""}
+              {git.lastCommit ? ` · ${git.lastCommit}` : ""}
+              {git.dirty ? " · uncommitted changes" : ""}
+            </p>
+            {prError ? <p className="text-[12px] text-red-600 mb-2">{prError}</p> : null}
+            <div className="flex gap-5 text-[13px]">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`pb-2 border-b-2 -mb-px ${
+                    tab === t.id ? "border-[#1a1a1a] font-medium" : "border-transparent text-muted hover:text-text"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {tab === "plan" && (
-          <div className="flex-1 p-3 min-h-0">
-            <PlanEditor sessionId={sessionId} userId={CURRENT_USER.id} />
-          </div>
-        )}
+          {tab === "run" && (
+            <div className="flex-1 grid grid-cols-[minmax(260px,0.9fr)_minmax(380px,1.2fr)] min-h-0">
+              <ChatPanel sessionId={sessionId} userName={CURRENT_USER.name} userId={CURRENT_USER.id} />
+              <div className="flex flex-col min-h-0 border-l border-border">
+                <div className="h-[46%] min-h-0">
+                  <MetricsPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                </div>
+                <div className="flex-1 min-h-0 border-t border-border">
+                  <TerminalPanel sessionId={sessionId} userName={CURRENT_USER.name} />
+                </div>
+              </div>
+            </div>
+          )}
 
-        {tab === "config" && (
-          <div className="flex-1 p-3 min-h-0">
-            <ConfigEditor sessionId={sessionId} />
-          </div>
-        )}
+          {tab === "plan" && (
+            <div className="flex-1 min-h-0">
+              <PlanEditor sessionId={sessionId} userId={CURRENT_USER.id} />
+            </div>
+          )}
+
+          {tab === "config" && (
+            <div className="flex-1 min-h-0">
+              <ConfigEditor sessionId={sessionId} />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

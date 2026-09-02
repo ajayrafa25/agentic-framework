@@ -1,5 +1,3 @@
-import fs from "fs-extra";
-import path from "node:path";
 import { v4 as uuid } from "uuid";
 import {
   AGENT_NAME,
@@ -8,6 +6,7 @@ import {
 } from "@agentic/shared";
 import { sessionStore } from "./session-store.js";
 import { readWorkspaceFile, writeWorkspaceFile } from "./files.js";
+import { commitWorkspaceChanges } from "./git.js";
 
 const FORGE_MENTION = /@forge/i;
 
@@ -111,6 +110,11 @@ export async function handleForgeRequest(
   }
 
   if (actions.length > 0) {
+    try {
+      await commitWorkspaceChanges(session.workspacePath, `forge: ${actions[0]}`);
+    } catch {
+      // workspace may not be a git repo yet
+    }
     return `Done. ${actions.join(" · ")} Review the config diff and discuss in chat before starting a long training run.`;
   }
 
@@ -131,15 +135,4 @@ export function createAgentMessage(sessionId: string, content: string): ChatMess
 
 export function shouldInvokeForge(content: string): boolean {
   return FORGE_MENTION.test(content);
-}
-
-export async function commitWorkspaceChanges(
-  workspacePath: string,
-  message: string
-): Promise<string | null> {
-  const gitDir = path.join(workspacePath, ".git");
-  if (!fs.existsSync(gitDir)) {
-    return null;
-  }
-  return null;
 }

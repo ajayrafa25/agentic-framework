@@ -8,7 +8,7 @@ export function ConfigEditor({ sessionId }: { sessionId: string }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetchFile(sessionId, "config/experiment.yaml").then((f) => setContent(f.content));
+    fetchFile(sessionId, "config/experiment.yaml").then((f) => setContent(f.content ?? ""));
   }, [sessionId]);
 
   async function save() {
@@ -18,17 +18,18 @@ export function ConfigEditor({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="flex flex-col h-full border border-border rounded-xl bg-surface overflow-hidden">
-      <div className="px-4 py-3 border-b border-border flex justify-between items-center">
-        <span className="text-sm font-medium">config/experiment.yaml</span>
-        <button onClick={save} className="text-xs text-accent hover:underline">
+    <div className="flex flex-col h-full bg-surface">
+      <div className="px-3 py-2 border-b border-border flex justify-between items-center">
+        <span className="text-sm font-mono text-muted">config/experiment.yaml</span>
+        <button onClick={save} className="h-7 px-2 rounded-md border border-border text-sm hover:bg-surface-2">
           {saved ? "Saved" : "Save"}
         </button>
       </div>
       <textarea
-        className="flex-1 w-full bg-surface-2 p-4 font-mono text-sm resize-none border-0 outline-none min-h-0"
+        className="flex-1 w-full p-3 font-mono text-[13px] resize-none border-0 outline-none min-h-0 leading-relaxed"
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        spellCheck={false}
       />
     </div>
   );

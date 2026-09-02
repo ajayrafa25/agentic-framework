@@ -59,3 +59,27 @@ export async function savePlan(sessionId: string, content: string, updatedBy: st
   });
   return res.json();
 }
+
+export async function fetchGitStatus(sessionId: string) {
+  const res = await fetch(`${API_URL}/api/sessions/${sessionId}/git`);
+  return res.json() as Promise<{
+    branch?: string;
+    dirty?: boolean;
+    lastCommit?: string;
+    githubPrUrl?: string;
+    githubConfigured?: boolean;
+  }>;
+}
+
+export async function openPullRequest(sessionId: string) {
+  const res = await fetch(`${API_URL}/api/sessions/${sessionId}/github-pr`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId: "u1", userName: "Maggie" }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Failed to open pull request");
+  }
+  return data as { url: string; created: boolean };
+}

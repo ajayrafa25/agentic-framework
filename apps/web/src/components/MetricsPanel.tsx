@@ -8,11 +8,12 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  CartesianGrid,
 } from "recharts";
 import type { TrainingMetrics } from "@agentic/shared";
 import { useSessionSocket } from "@/hooks/useSocket";
 import { fetchSession } from "@/lib/api";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export function MetricsPanel({ sessionId, userName }: { sessionId: string; userName: string }) {
   const socket = useSessionSocket(sessionId, userName);
@@ -34,44 +35,52 @@ export function MetricsPanel({ sessionId, userName }: { sessionId: string; userN
   const history = metrics?.history ?? [];
 
   return (
-    <div className="border border-border rounded-xl bg-surface p-4 h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium">Training metrics</h3>
-        {metrics && (
-          <span className="text-xs rounded-full px-2 py-0.5 bg-surface-2 text-muted">
-            {metrics.status}
-          </span>
-        )}
+    <div className="h-full bg-surface p-3 overflow-auto">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold text-muted">Metrics</h3>
+        {metrics && <StatusBadge status={metrics.status} />}
       </div>
 
       {!metrics ? (
-        <p className="text-sm text-muted">No training run yet. Validate config and start training in the terminal.</p>
+        <p className="text-sm text-muted">No run yet. Use the terminal to start training.</p>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
-            <div className="rounded-lg bg-surface-2 p-3">
-              <div className="text-muted text-xs">Train loss</div>
-              <div className="font-mono text-lg">{metrics.trainLoss.toFixed(4)}</div>
+          <div className="flex gap-6 text-sm mb-2">
+            <div>
+              <div className="text-xs text-muted">train loss</div>
+              <div className="font-mono">{metrics.trainLoss.toFixed(4)}</div>
             </div>
-            <div className="rounded-lg bg-surface-2 p-3">
-              <div className="text-muted text-xs">Val loss</div>
-              <div className="font-mono text-lg">{metrics.valLoss.toFixed(4)}</div>
+            <div>
+              <div className="text-xs text-muted">val loss</div>
+              <div className="font-mono">{metrics.valLoss.toFixed(4)}</div>
             </div>
-            <div className="rounded-lg bg-surface-2 p-3">
-              <div className="text-muted text-xs">{metrics.primaryMetricName}</div>
-              <div className="font-mono text-lg text-accent">{metrics.primaryMetric.toFixed(4)}</div>
+            <div>
+              <div className="text-xs text-muted">{metrics.primaryMetricName}</div>
+              <div className="font-mono">{metrics.primaryMetric.toFixed(4)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted">epoch</div>
+              <div className="font-mono">
+                {metrics.epoch}/{metrics.totalEpochs}
+              </div>
             </div>
           </div>
           {history.length > 0 && (
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={history}>
-                <XAxis dataKey="epoch" stroke="#8b95a8" fontSize={11} />
-                <YAxis stroke="#8b95a8" fontSize={11} />
-                <Tooltip contentStyle={{ background: "#1a2030", border: "1px solid #2a3344" }} />
-                <Legend />
-                <Line type="monotone" dataKey="trainLoss" stroke="#818cf8" dot={false} name="Train loss" />
-                <Line type="monotone" dataKey="valLoss" stroke="#f87171" dot={false} name="Val loss" />
-                <Line type="monotone" dataKey="primaryMetric" stroke="#6ee7b7" dot={false} name={metrics.primaryMetricName} />
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={history} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis dataKey="epoch" stroke="#6b7280" fontSize={11} tickLine={false} />
+                <YAxis stroke="#6b7280" fontSize={11} tickLine={false} width={40} />
+                <Tooltip
+                  contentStyle={{
+                    background: "#fff",
+                    border: "1px solid #d0d7de",
+                    fontSize: 12,
+                  }}
+                />
+                <Line type="monotone" dataKey="trainLoss" stroke="#277da1" dot={false} strokeWidth={1.5} name="train" />
+                <Line type="monotone" dataKey="valLoss" stroke="#e63946" dot={false} strokeWidth={1.5} name="val" />
+                <Line type="monotone" dataKey="primaryMetric" stroke="#f9c74f" dot={false} strokeWidth={1.5} name={metrics.primaryMetricName} />
               </LineChart>
             </ResponsiveContainer>
           )}

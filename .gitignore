@@ -4,7 +4,14 @@ dist
 .turbo
 workspaces/*
 !workspaces/.gitkeep
+data/*
+!data/.gitkeep
 .env
 .env.local
 *.log
 .DS_Store
+*.tsbuildinfo
+**/__pycache__/
+*.pyc
+templates/ml-experiment/data/cifar-10-*
+templates/ml-experiment/experiments/

@@ -4,13 +4,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: "#0c0f14",
-        surface: "#141820",
-        "surface-2": "#1a2030",
-        border: "#2a3344",
-        muted: "#8b95a8",
-        accent: "#6ee7b7",
-        "accent-2": "#818cf8",
+        bg: "#f8f9fa",
+        surface: "#ffffff",
+        "surface-2": "#f4f5f7",
+        sidebar: "#1a1a1a",
+        border: "#e5e7eb",
+        muted: "#6b7280",
+        accent: "#f9c74f",
+        link: "#277da1",
+        loss: "#e63946",
+        ok: "#2a9d8f",
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+      },
+      borderRadius: {
+        DEFAULT: "6px",
       },
     },
   },

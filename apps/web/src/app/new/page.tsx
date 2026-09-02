@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSession } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
 
 export default function NewSessionPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [architecture, setArchitecture] = useState("resnet50");
+  const [architecture, setArchitecture] = useState("resnet18");
   const [dataset, setDataset] = useState("cifar10");
   const [loading, setLoading] = useState(false);
 
@@ -26,54 +27,63 @@ export default function NewSessionPage() {
     router.push(`/session/${session.id}`);
   }
 
+  const field =
+    "mt-1 w-full h-8 rounded-md border border-border bg-surface px-2.5 text-[13px] outline-none focus:border-link";
+
   return (
-    <div className="min-h-screen bg-bg p-6 max-w-xl mx-auto">
-      <Link href="/" className="text-sm text-muted hover:text-accent">← Dashboard</Link>
-      <h1 className="text-2xl font-semibold mt-4 mb-6">New experiment session</h1>
-      <form onSubmit={handleCreate} className="space-y-4 rounded-xl border border-border bg-surface p-6">
-        <label className="block">
-          <span className="text-sm text-muted">Experiment name</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="vit-l-custom-finetune"
-            required
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm text-muted">Description</span>
-          <textarea
-            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 min-h-[80px]"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What are we trying to learn or improve?"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm text-muted">Model architecture</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2"
-            value={architecture}
-            onChange={(e) => setArchitecture(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm text-muted">Dataset</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2"
-            value={dataset}
-            onChange={(e) => setDataset(e.target.value)}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-accent/20 text-accent py-2 font-medium hover:bg-accent/30 disabled:opacity-50"
-        >
-          {loading ? "Creating..." : "Create session"}
-        </button>
-      </form>
-    </div>
+    <AppShell>
+      <header className="h-12 shrink-0 border-b border-border bg-surface px-4 flex items-center text-[13px] text-muted">
+        <Link href="/" className="hover:text-text">
+          Runs
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-text">New run</span>
+      </header>
+      <div className="flex-1 overflow-auto p-6">
+        <form onSubmit={handleCreate} className="max-w-md space-y-4">
+          <label className="block">
+            <span className="text-[12px] font-medium">Name</span>
+            <input
+              className={`${field} font-mono`}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="resnet18-cifar10-lr-sweep"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-[12px] font-medium">Notes</span>
+            <textarea
+              className={`${field} h-20 py-2`}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this run is testing"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-[12px] font-medium">Architecture</span>
+              <input className={`${field} font-mono`} value={architecture} onChange={(e) => setArchitecture(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="text-[12px] font-medium">Dataset</span>
+              <input className={`${field} font-mono`} value={dataset} onChange={(e) => setDataset(e.target.value)} />
+            </label>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={loading}
+              className="h-8 px-3 rounded-md bg-accent text-[#1a1a1a] text-[13px] font-medium disabled:opacity-50"
+            >
+              {loading ? "Creating…" : "Create run"}
+            </button>
+            <Link href="/" className="h-8 px-3 rounded-md border border-border text-[13px] inline-flex items-center">
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </div>
+    </AppShell>
   );
 }

@@ -1,13 +1,33 @@
 import fs from "fs-extra";
 import path from "node:path";
 import { v4 as uuid } from "uuid";
-import type { ActivityItem, ChatMessage, ExperimentSession, PlanDocument, TrainingMetrics } from "@agentic/shared";
-import { TEMPLATE_DIR, WORKSPACES_DIR } from "./config.js";
+import {
+  DEMO_USERS,
+  type ActivityItem,
+  type ChatMessage,
+  type ExperimentSession,
+  type PlanDocument,
+  type TrainingMetrics,
+} from "@agentic/shared";
+import { STATE_PATH, TEMPLATE_DIR, WORKSPACES_DIR } from "./config.js";
+import { GitError, gitStatus, initWorkspaceRepo } from "./git.js";
+
+function displayName(userId: string): string {
+  return DEMO_USERS.find((u) => u.id === userId)?.name ?? userId;
+}
+
+interface PersistedState {
+  version: 1;
+  sessions: ExperimentSession[];
+  chats: Record<string, ChatMessage[]>;
+  plans: Record<string, PlanDocument>;
+  activities: ActivityItem[];
+}
 
 const sessions = new Map<string, ExperimentSession>();
 const chatHistory = new Map<string, ChatMessage[]>();
 const plans = new Map<string, PlanDocument>();
-const activities: ActivityItem[] = [];
+let activities: ActivityItem[] = [];
 
 function metricsFromFile(workspacePath: string): TrainingMetrics | undefined {
   const metricsPath = path.join(workspacePath, "experiments/logs/metrics.json");
@@ -46,7 +66,54 @@ Discuss in chat before @forge implements changes.
 `;
 }
 
+function snapshot(): PersistedState {
+  return {
+    version: 1,
+    sessions: Array.from(sessions.values()).map(({ metrics: _metrics, ...rest }) => rest),
+    chats: Object.fromEntries(chatHistory.entries()),
+    plans: Object.fromEntries(plans.entries()),
+    activities,
+  };
+}
+
+function persist(): void {
+  fs.ensureDirSync(path.dirname(STATE_PATH));
+  fs.writeJsonSync(STATE_PATH, snapshot(), { spaces: 2 });
+}
+
 export class SessionStore {
+  async load(): Promise<void> {
+    if (!(await fs.pathExists(STATE_PATH))) return;
+    try {
+      const data = (await fs.readJson(STATE_PATH)) as PersistedState;
+      sessions.clear();
+      chatHistory.clear();
+      plans.clear();
+      for (const session of data.sessions ?? []) {
+        session.workspacePath = path.join(WORKSPACES_DIR, session.id);
+        sessions.set(session.id, session);
+        const gitDir = path.join(session.workspacePath, ".git");
+        if ((await fs.pathExists(session.workspacePath)) && !(await fs.pathExists(gitDir))) {
+          try {
+            await initWorkspaceRepo(session.workspacePath, session.branch);
+          } catch (err) {
+            const message = err instanceof GitError ? err.message : String(err);
+            console.warn(`git init failed for ${session.id}:`, message);
+          }
+        }
+      }
+      for (const [id, messages] of Object.entries(data.chats ?? {})) {
+        chatHistory.set(id, messages);
+      }
+      for (const [id, plan] of Object.entries(data.plans ?? {})) {
+        plans.set(id, plan);
+      }
+      activities = data.activities ?? [];
+    } catch (err) {
+      console.warn("Failed to load persisted sessions:", err);
+    }
+  }
+
   list(): ExperimentSession[] {
     return Array.from(sessions.values()).sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -71,20 +138,38 @@ export class SessionStore {
     const branch = `experiment/${id.slice(0, 8)}`;
     const workspacePath = path.join(WORKSPACES_DIR, id);
     await fs.ensureDir(WORKSPACES_DIR);
-    await fs.copy(TEMPLATE_DIR, workspacePath);
+    await fs.copy(TEMPLATE_DIR, workspacePath, {
+      filter: (src) => {
+        const rel = path.relative(TEMPLATE_DIR, src);
+        if (!rel || rel === ".") return true;
+        if (rel === "experiments" || rel.startsWith(`experiments${path.sep}`)) return false;
+        if (rel.startsWith(`data${path.sep}cifar`)) return false;
+        if (rel === ".git" || rel.startsWith(`.git${path.sep}`)) return false;
+        return true;
+      },
+    });
+    await fs.ensureDir(path.join(workspacePath, "experiments/logs"));
+    await fs.ensureDir(path.join(workspacePath, "experiments/checkpoints"));
 
     const configPath = path.join(workspacePath, "config/experiment.yaml");
     let configText = await fs.readFile(configPath, "utf-8");
     configText = configText
       .replace(/\{\{name\}\}/g, input.name)
-      .replace(/architecture: resnet50/, `architecture: ${input.modelArchitecture}`)
-      .replace(/dataset: cifar10/, `dataset: ${input.dataset}`);
+      .replace(/^(\s*architecture:\s*).+$/m, `$1${input.modelArchitecture}`)
+      .replace(/^(\s*dataset:\s*).+$/m, `$1${input.dataset}`);
     await fs.writeFile(configPath, configText);
 
     const readmePath = path.join(workspacePath, "README.md");
     let readme = await fs.readFile(readmePath, "utf-8");
     readme = readme.replace(/\{\{name\}\}/g, input.name);
     await fs.writeFile(readmePath, readme);
+
+    try {
+      await initWorkspaceRepo(workspacePath, branch);
+    } catch (err) {
+      const message = err instanceof GitError ? err.message : String(err);
+      console.warn(`git init failed for ${id}:`, message);
+    }
 
     const now = new Date().toISOString();
     const session: ExperimentSession = {
@@ -115,10 +200,11 @@ export class SessionStore {
       sessionId: id,
       sessionName: input.name,
       userId: input.createdBy,
-      userName: input.createdBy,
+      userName: displayName(input.createdBy),
       action: "Created experiment session",
     });
 
+    persist();
     return session;
   }
 
@@ -127,6 +213,16 @@ export class SessionStore {
     if (!session) return undefined;
     session.status = status;
     session.updatedAt = new Date().toISOString();
+    persist();
+    return session;
+  }
+
+  setGithubPrUrl(id: string, url: string): ExperimentSession | undefined {
+    const session = sessions.get(id);
+    if (!session) return undefined;
+    session.githubPrUrl = url;
+    session.updatedAt = new Date().toISOString();
+    persist();
     return session;
   }
 
@@ -140,6 +236,7 @@ export class SessionStore {
     chatHistory.set(message.sessionId, list);
     const session = sessions.get(message.sessionId);
     if (session) session.updatedAt = new Date().toISOString();
+    persist();
     return message;
   }
 
@@ -153,6 +250,9 @@ export class SessionStore {
     plan.content = content;
     plan.updatedAt = new Date().toISOString();
     plan.updatedBy = updatedBy;
+    const session = sessions.get(sessionId);
+    if (session) session.updatedAt = new Date().toISOString();
+    persist();
     return plan;
   }
 
@@ -164,6 +264,7 @@ export class SessionStore {
     };
     activities.unshift(item);
     if (activities.length > 100) activities.length = 100;
+    persist();
     return item;
   }
 
@@ -171,13 +272,23 @@ export class SessionStore {
     return activities;
   }
 
+  async workspaceGitStatus(sessionId: string) {
+    const session = sessions.get(sessionId);
+    if (!session) return undefined;
+    try {
+      return await gitStatus(session.workspacePath);
+    } catch {
+      return { branch: session.branch, dirty: false };
+    }
+  }
+
   async seedDemoSessions(): Promise<void> {
     if (sessions.size > 0) return;
 
     const baseline = await this.create({
-      name: "resnet50-cifar10-baseline",
+      name: "resnet18-cifar10-baseline",
       description: "Baseline image classifier — team is tuning learning rate and augmentation",
-      modelArchitecture: "resnet50",
+      modelArchitecture: "resnet18",
       dataset: "cifar10",
       createdBy: "u1",
     });

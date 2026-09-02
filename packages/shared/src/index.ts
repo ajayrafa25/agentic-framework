@@ -19,6 +19,7 @@ export interface ExperimentSession {
   createdAt: string;
   updatedAt: string;
   createdBy: UserId;
+  githubPrUrl?: string;
   metrics?: TrainingMetrics;
 }
 

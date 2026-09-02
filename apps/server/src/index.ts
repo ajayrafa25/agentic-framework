@@ -9,6 +9,8 @@ import { sessionStore } from "./session-store.js";
 import { buildFileTree, readWorkspaceFile, writeWorkspaceFile } from "./files.js";
 import { createAgentMessage, handleForgeRequest, shouldInvokeForge } from "./agent.js";
 import { spawnTerminal } from "./terminal.js";
+import { GithubConfigError, githubConfigured, openSessionPullRequest } from "./github.js";
+import { GitError } from "./git.js";
 
 const app = express();
 app.use(cors({ origin: WEB_ORIGIN }));
@@ -103,6 +105,47 @@ app.put("/api/sessions/:id/file", async (req, res) => {
   }
   await writeWorkspaceFile(session.workspacePath, filePath, req.body.content);
   res.json({ ok: true });
+});
+
+app.get("/api/sessions/:id/git", async (req, res) => {
+  const session = sessionStore.get(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  const status = await sessionStore.workspaceGitStatus(req.params.id);
+  res.json({
+    ...status,
+    githubPrUrl: session.githubPrUrl,
+    githubConfigured: githubConfigured(),
+  });
+});
+
+app.post("/api/sessions/:id/github-pr", async (req, res) => {
+  const session = sessionStore.get(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+  try {
+    const result = await openSessionPullRequest(session, session.workspacePath);
+    sessionStore.setGithubPrUrl(session.id, result.url);
+    sessionStore.addActivity({
+      sessionId: session.id,
+      sessionName: session.name,
+      userId: req.body.userId ?? "u1",
+      userName: req.body.userName ?? "Maggie",
+      action: result.created ? "Opened a GitHub pull request" : "Updated GitHub pull request",
+    });
+    res.json({ url: result.url, created: result.created });
+  } catch (err) {
+    if (err instanceof GithubConfigError) {
+      res.status(501).json({ error: err.message });
+      return;
+    }
+    const message = err instanceof GitError || err instanceof Error ? err.message : "Failed to open pull request";
+    res.status(500).json({ error: message });
+  }
 });
 
 app.get("/api/activities", (_req, res) => {
@@ -200,6 +243,7 @@ io.on("connection", (socket) => {
 });
 
 async function main() {
+  await sessionStore.load();
   await sessionStore.seedDemoSessions();
   httpServer.listen(SERVER_PORT, () => {
     console.log(`Forge server listening on http://localhost:${SERVER_PORT}`);
