@@ -1,0 +1,32 @@
+{
+  "name": "@agentic/naukri-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local MCP server that prepares and tracks Naukri job applications. You submit each application yourself on Naukri.",
+  "type": "module",
+  "bin": {
+    "naukri-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "tsc && node --test dist/search.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "express": "^5.1.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.2"
+  }
+}
